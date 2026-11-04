@@ -218,14 +218,24 @@ fig.tight_layout()
 fig.savefig(SAIDA / "10_countplot_contratos_status_churn.png", dpi=160, bbox_inches="tight")
 plt.close(fig)
 
-# 4. Crosstab heatmap — cruzamento real contrato x pagamento.
-crosstab = pd.crosstab(base["tipo_contrato"], base["forma_pagamento"])
-ordem_linhas = [x for x in ["Mensal", "Anual", "Bienal"] if x in crosstab.index]
-ordem_colunas = [x for x in ["Boleto", "Cartão", "Pix"] if x in crosstab.columns]
-crosstab = crosstab.reindex(index=ordem_linhas, columns=ordem_colunas, fill_value=0)
+# 4. Taxa de churn por combinação de contrato x pagamento.
+ordem_linhas = [x for x in ["Mensal", "Anual", "Bienal"] if x in base["tipo_contrato"].unique()]
+ordem_colunas = [x for x in ["Boleto", "Cartão", "Pix"] if x in base["forma_pagamento"].unique()]
+taxa_churn = (
+    base[base["tipo_contrato"].isin(ordem_linhas) & base["forma_pagamento"].isin(ordem_colunas)]
+    .pivot_table(index="tipo_contrato", columns="forma_pagamento", values="churn", aggfunc="mean")
+    .mul(100)
+    .reindex(index=ordem_linhas, columns=ordem_colunas)
+)
 fig, ax = plt.subplots(figsize=(9, 6))
-sns.heatmap(crosstab, annot=True, fmt="d", cmap="YlOrRd", linewidths=0.5, cbar_kws={"label": "Quantidade de clientes"}, ax=ax)
-ax.set_title("Cruzamento real: tipo de contrato × forma de pagamento", fontsize=16, weight="bold", pad=15)
+sns.heatmap(
+    taxa_churn, annot=True, fmt=".1f", cmap="YlOrRd", linewidths=0.5,
+    vmin=0, vmax=max(50, float(taxa_churn.max().max()) * 1.05),
+    cbar_kws={"label": "Taxa de churn (%)"}, ax=ax,
+)
+for texto in ax.texts:
+    texto.set_text(f"{float(texto.get_text()):.1f}%")
+ax.set_title("Taxa de churn: tipo de contrato × forma de pagamento", fontsize=16, weight="bold", pad=15)
 ax.set_xlabel("Forma de pagamento")
 ax.set_ylabel("Tipo de contrato")
 fig.tight_layout()
@@ -570,19 +580,35 @@ grid.figure.suptitle("Tempo vs. mensalidade por tipo de contrato", y=1.05, fonts
 grid.figure.savefig(SAIDA / "19_facetgrid_tempo_mensalidade_contrato.png", dpi=160, bbox_inches="tight")
 plt.close(grid.figure)
 
-# 4. Regression plot: tendência linear entre tempo e chamados.
+# 4. Regression plot: tendência linear entre tempo e chamados por status de churn.
 fig, ax = plt.subplots(figsize=(10, 6))
-sns.regplot(
+sns.scatterplot(
     data=base,
     x="tempo_cliente_meses",
     y="chamados_suporte",
-    scatter_kws={"alpha": 0.35, "s": 35, "color": "#4C78A8"},
-    line_kws={"color": "#E45756", "linewidth": 2.5},
+    hue="status_churn",
+    hue_order=ordem_classes,
+    palette=cores,
+    alpha=0.35,
+    s=35,
     ax=ax,
+    legend=True,
 )
+for status in ordem_classes:
+    dados_status = base[base["status_churn"] == status]
+    sns.regplot(
+        data=dados_status,
+        x="tempo_cliente_meses",
+        y="chamados_suporte",
+        scatter=False,
+        color=cores[status],
+        line_kws={"linewidth": 2.5},
+        ax=ax,
+    )
 ax.set_title("Tendência linear: tempo de cliente × chamados de suporte", fontsize=16, weight="bold")
 ax.set_xlabel("Tempo de cliente (meses)")
 ax.set_ylabel("Chamados de suporte")
+ax.legend(title="Status do cliente")
 fig.tight_layout()
 fig.savefig(SAIDA / "20_regression_tempo_chamados.png", dpi=160, bbox_inches="tight")
 plt.close(fig)
