@@ -26,6 +26,7 @@ O processo realiza:
 ```text
 .
 ├── tratamento_base_churn.py          # Script principal de tratamento
+├── gerar_graficos_completo.py        # Script de criação de todos graficos
 ├── base_churn_nova_tratada.xlsx      # Base final gerada pelo script
 └── README.md                         # Documentação do projeto
 ```
